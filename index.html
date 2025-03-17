@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Statify - Spotify Stats</title>
+    <link rel="stylesheet" href="styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    <header>
+        <h1 class="header_text">Statify</h1>
+        <p>A simple Spotify stats viewer</p>
+    </header>
+
+    <div class="container">
+        <!-- Authentication Section -->
+        <div id="auth-section">
+            <button id="login-btn">Login with Spotify</button>
+            <p id="auth-status">Not logged in</p>
+        </div>
+
+        <!-- Action Buttons (initially hidden) -->
+        <div id="action-buttons" style="display: none;">
+            <button id="profile-btn">Get My Profile</button>
+            <button id="tracks-btn">Get Top Tracks</button>
+            <button id="analysis-btn">Analyze My Music</button>
+        </div>
+
+        <!-- Results Console -->
+        <div id="console">
+            <div class="console-header">
+                <span>Results</span>
+                <button id="clear-btn">Clear</button>
+            </div>
+            <div id="console-output">
+                <p>Welcome to Statify! Login with Spotify to get started.</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
