@@ -3,7 +3,6 @@ headertext.classList.add('visible');
 
 const API_BASE_URL = "https://ac1ofznmkj.execute-api.us-east-2.amazonaws.com/prod";
 
-
 // DOM elements
 const loginBtn = document.getElementById("login-btn");
 const profileBtn = document.getElementById("profile-btn");
@@ -13,15 +12,60 @@ const clearBtn = document.getElementById("clear-btn");
 const authStatus = document.getElementById("auth-status");
 const actionButtons = document.getElementById("action-buttons");
 const consoleOutput = document.getElementById("console-output");
+const logoutBtn = document.getElementById("logout-btn")
 
-// Add event listeners
+// Event listeners
 loginBtn.addEventListener("click", handleLogin);
-profileBtn.addEventListener("click", () => fetchData("profile"));
-tracksBtn.addEventListener("click", () => fetchData("tracks"));
-analysisBtn.addEventListener("click", () => fetchData("analysis"));
+profileBtn.addEventListener("click", () => fetchData("user-profile"));
+tracksBtn.addEventListener("click", () => fetchData("top-tracks"));
+analysisBtn.addEventListener("click", () => analyze());
 clearBtn.addEventListener("click", clearConsole);
+logoutBtn.addEventListener("click", logout);
 
-// Calls lambda function from my AWS, which authorizes
+// Logout function, removes access and refresh tokens
+function logout() {
+    // Clear tokens from localStorage
+    localStorage.removeItem("spotify_access_token");
+    localStorage.removeItem("spotify_refresh_token");
+    
+    // Update UI to show logged out state
+    authStatus.textContent = "Logged out";
+    actionButtons.style.display = "none";
+    
+    // Write to console to show that the user has logged out
+    writeToConsole("Logged out successfully. Please login again to access your Spotify data.");
+}
+
+function analyze() {
+    const token = localStorage.getItem("spotify_access_token");
+    
+    if (!token) {
+        writeToConsole("Error: Not logged in. Please login with Spotify first.");
+        return;
+    }
+    writeToConsole("Analyzing your music taste...");
+    
+    // Call the analyzer lambda function, using the access token
+    const url = `${API_BASE_URL}/analyzer?access_token=${token}`;
+    
+    fetch(url)
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        // Call display analysis helper function to write to console
+        displayAnalysis({"analysis": data});
+    })
+    .catch(error => {
+        writeToConsole(`Error analyzing music: ${error.message}`);
+        console.error(error);
+    });
+}
+
+// Calls lambda function from my AWS, spotify_auth in order to authorize
 function handleLogin() {
     authStatus.textContent = "Connecting to Spotify...";
     window.location.href = `${API_BASE_URL}/auth`;
@@ -37,7 +81,7 @@ function getQueryParams() {
     };
 }
 
-// Currently gets mock data, I haven't implemented the fetch-data api yet
+// Fetchdata helper function
 function fetchData(dataType) {
     const token = localStorage.getItem("spotify_access_token");
     
@@ -48,22 +92,10 @@ function fetchData(dataType) {
     
     writeToConsole(`Fetching your ${dataType} data...`);
     
-    setTimeout(() => {
-        const data = getMockData(dataType);
-        displayData(dataType, data);
-    }, 500);
+    // Calls lambda function from my AWS, spotifyfetch-data in order to get user data 
+    const url = `${API_BASE_URL}/fetch-data?access_token=${token}&type=${dataType}`;
     
-    /*
-    // API endpoints for different data types will uncomment out once added
-    const endpoints = {
-        profile: `${API_BASE_URL}/user-profile`,
-        tracks: `${API_BASE_URL}/top-tracks`,
-        analysis: `${API_BASE_URL}/analyze-music`
-    };
-    
-    fetch(endpoints[dataType], {
-        headers: { 'Authorization': `Bearer ${token}` }
-    })
+    fetch(url)
     .then(response => {
         if (!response.ok) {
             throw new Error(`HTTP error ${response.status}`);
@@ -71,27 +103,35 @@ function fetchData(dataType) {
         return response.json();
     })
     .then(data => {
-        displayData(dataType, data);
+        // Process and display the data
+        switch(dataType) {
+            case "user-profile":
+                displayProfile({"profile": data});
+                break;
+            case "top-tracks":
+                displayTracks({"topTracks": data});
+                break;
+            default:
+                writeToConsole(`Received data for ${dataType}, but don't know how to display it.`);
+                console.log(data); // General debugging statement, realistically should never enter this
+        }
     })
     .catch(error => {
         writeToConsole(`Error fetching ${dataType}: ${error.message}`);
+        console.error(error);
     });
-    */
 }
 
-// Function to display formatted data in the console
-function displayData(dataType, data) {
-    switch (dataType) {
-        case "profile":
-            displayProfile(data);
-            break;
-        case "tracks":
-            displayTracks(data);
-            break;
-        case "analysis":
-            displayAnalysis(data);
-            break;
+// Process raw Spotify data into the format needed for analysis display
+function processAnalysisData(data) {
+    // If data already has the right structure, just return it
+    if (data.genres && data.audioFeatures) {
+        return data;
     }
+    
+    // For other formats, just pass through the data as is
+    // The Lambda should handle most of the processing
+    return data;
 }
 
 // Function to display profile data
@@ -102,7 +142,7 @@ function displayProfile(data) {
     output += `<h3>Spotify Profile Data</h3>`;
     output += `<table class="data-table">`;
     output += `<tr><th>Display Name</th><td>${profile.display_name}</td></tr>`;
-    output += `<tr><th>Followers</th><td>${profile.followers.total}</td></tr>`;
+    output += `<tr><th>Followers</th><td>${profile.followers?.total || 0}</td></tr>`;
     output += `<tr><th>Email</th><td>${profile.email || 'Not available'}</td></tr>`;
     output += `<tr><th>Country</th><td>${profile.country || 'Not available'}</td></tr>`;
     output += `</table>`;
@@ -111,7 +151,7 @@ function displayProfile(data) {
     writeToConsole(output);
 }
 
-// Function to display top tracks
+// Helper function to display top tracks
 function displayTracks(data) {
     const tracks = data.topTracks.items;
     let output = `<div class="console-entry">`;
@@ -120,14 +160,18 @@ function displayTracks(data) {
     output += `<table class="data-table">`;
     output += `<tr><th>#</th><th>Track</th><th>Artist</th><th>Album</th></tr>`;
     
-    tracks.slice(0, 10).forEach((track, index) => {
-        output += `<tr>`;
-        output += `<td>${index + 1}</td>`;
-        output += `<td>${track.name}</td>`;
-        output += `<td>${track.artists.map(a => a.name).join(', ')}</td>`;
-        output += `<td>${track.album.name}</td>`;
-        output += `</tr>`;
-    });
+    if (tracks && tracks.length > 0) {
+        tracks.slice(0, 10).forEach((track, index) => {
+            output += `<tr>`;
+            output += `<td>${index + 1}</td>`;
+            output += `<td>${track.name}</td>`;
+            output += `<td>${track.artists.map(a => a.name).join(', ')}</td>`;
+            output += `<td>${track.album.name}</td>`;
+            output += `</tr>`;
+        });
+    } else {
+        output += `<tr><td colspan="4">No tracks found</td></tr>`;
+    }
     
     output += `</table>`;
     output += `</div>`;
@@ -135,34 +179,47 @@ function displayTracks(data) {
     writeToConsole(output);
 }
 
-// Function to display music analysis
+// Helper function to display music analysis
 function displayAnalysis(data) {
     const analysis = data.analysis;
     let output = `<div class="console-entry">`;
     output += `<div class="timestamp">${new Date().toLocaleTimeString()}</div>`;
     output += `<h3>Your Music Analysis</h3>`;
     
+    // Genres section
     output += `<h4>Top Genres</h4>`;
     output += `<table class="data-table">`;
     output += `<tr><th>Genre</th><th>Percentage</th></tr>`;
     
-    Object.entries(analysis.genres)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .forEach(([genre, percentage]) => {
-            output += `<tr><td>${genre}</td><td>${percentage}%</td></tr>`;
+    if (analysis.genres && Object.keys(analysis.genres).length > 0) {
+        Object.entries(analysis.genres)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 10)
+            .forEach(([genre, percentage]) => {
+                output += `<tr><td>${genre}</td><td>${percentage}%</td></tr>`;
+            });
+    } else {
+        output += `<tr><td colspan="2">No genre data available</td></tr>`;
+    }
+    
+    output += `</table>`;
+    
+    // Top Artists section
+    if (analysis.topArtists && analysis.topArtists.length > 0) {
+        output += `<h4>Your Top Artists</h4>`;
+        output += `<table class="data-table">`;
+        output += `<tr><th>#</th><th>Artist</th><th>Popularity</th></tr>`;
+        
+        analysis.topArtists.forEach((artist, index) => {
+            output += `<tr>`;
+            output += `<td>${index + 1}</td>`;
+            output += `<td>${artist.name}</td>`;
+            output += `<td>${artist.popularity}/100</td>`;
+            output += `</tr>`;
         });
-    
-    output += `</table>`;
-    
-    // Audio features
-    output += `<h4>Audio Features</h4>`;
-    output += `<table class="data-table">`;
-    output += `<tr><th>Feature</th><th>Score</th></tr>`;
-    output += `<tr><td>Energy</td><td>${analysis.audioFeatures.energy}%</td></tr>`;
-    output += `<tr><td>Danceability</td><td>${analysis.audioFeatures.danceability}%</td></tr>`;
-    output += `<tr><td>Positivity (Valence)</td><td>${analysis.audioFeatures.valence}%</td></tr>`;
-    output += `</table>`;
+        
+        output += `</table>`;
+    }
     
     output += `</div>`;
     
@@ -185,96 +242,31 @@ function clearConsole() {
     consoleOutput.innerHTML = '<p>Console cleared.</p>';
 }
 
-// Function to get mock data (for testing without API as I haven't implemented it yet)
-function getMockData(dataType) {
-    const mockData = {
-        profile: {
-            profile: {
-                display_name: "Spotify User",
-                followers: { total: 42 },
-                email: "user@example.com",
-                country: "US",
-                images: [{ url: "https://via.placeholder.com/100" }]
-            }
-        },
-        tracks: {
-            topTracks: {
-                items: [
-                    {
-                        name: "Track 1",
-                        artists: [{ name: "Artist 1" }],
-                        album: { name: "Album 1", images: [{ url: "" }] }
-                    },
-                    {
-                        name: "Track 2",
-                        artists: [{ name: "Artist 2" }],
-                        album: { name: "Album 2", images: [{ url: "" }] }
-                    },
-                    {
-                        name: "Track 3",
-                        artists: [{ name: "Artist 3" }],
-                        album: { name: "Album 3", images: [{ url: "" }] }
-                    },
-                    {
-                        name: "Track 4",
-                        artists: [{ name: "Artist 4" }],
-                        album: { name: "Album 4", images: [{ url: "" }] }
-                    },
-                    {
-                        name: "Track 5",
-                        artists: [{ name: "Artist 5" }],
-                        album: { name: "Album 5", images: [{ url: "" }] }
-                    }
-                ]
-            }
-        },
-        analysis: {
-            analysis: {
-                genres: {
-                    "pop": 35,
-                    "rock": 25,
-                    "indie": 20,
-                    "hip hop": 10,
-                    "electronic": 10
-                },
-                audioFeatures: {
-                    danceability: 72,
-                    energy: 65,
-                    valence: 58
-                }
-            }
-        }
-    };
-    
-    return mockData[dataType];
-}
-
 // Check for tokens on page load
 window.onload = function() {
     const params = getQueryParams();
     
     if (params.error) {
-        // Handle authentication error
+        // If authentication error, write to console
         authStatus.textContent = `Error: ${params.error}`;
         writeToConsole(`Authentication error: ${params.error}`);
         return;
     }
     
     if (params.access_token) {
-        // Save tokens to localStorage
+        // Otherwise, we save the tokens in local storage. 
         localStorage.setItem("spotify_access_token", params.access_token);
         if (params.refresh_token) {
             localStorage.setItem("spotify_refresh_token", params.refresh_token);
         }
         
-        // Update UI to show logged in state
+        // Updates text to show that login was successful
         authStatus.textContent = "Logged in successfully!";
         actionButtons.style.display = "flex";
         
-        // Write success message to console
         writeToConsole("Successfully logged in with Spotify! Click the buttons above to fetch your data.");
         
-        // Remove tokens from URL for security
+        // Remove tokens from URL, for safety reasons 
         window.history.replaceState({}, document.title, "/");
     } else {
         // Check if we have a token in localStorage (means already logged in)

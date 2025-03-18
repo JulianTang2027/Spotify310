@@ -8,7 +8,6 @@
 <body>
     <header>
         <h1 class="header_text">Statify</h1>
-        <p>A simple Spotify stats viewer</p>
     </header>
 
     <div class="container">
@@ -16,16 +15,17 @@
         <div id="auth-section">
             <button id="login-btn">Login with Spotify</button>
             <p id="auth-status">Not logged in</p>
+            <button id="logout-btn">Logout</button>
         </div>
 
-        <!-- Action Buttons (initially hidden) -->
+        <!-- Action Buttons (initially hidden until user logs in) -->
         <div id="action-buttons" style="display: none;">
             <button id="profile-btn">Get My Profile</button>
             <button id="tracks-btn">Get Top Tracks</button>
             <button id="analysis-btn">Analyze My Music</button>
         </div>
 
-        <!-- Results Console -->
+        <!-- Console -->
         <div id="console">
             <div class="console-header">
                 <span>Results</span>
