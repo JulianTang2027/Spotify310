@@ -20,9 +20,9 @@ Statify is a project that allows users to view their listening history, top arti
 ## Usage
 ![Homepage](https://raw.githubusercontent.com/JulianTang2027/Spotify310/master/images/homepage.png)
 1. Log in to your Spotify account.
-<img src="https://raw.githubusercontent.com/JulianTang2027/Spotify310/master/images/login.png" width="300">
+<img alt="Login" src="https://raw.githubusercontent.com/JulianTang2027/Spotify310/master/images/login.png" width="300">
 2. Choose which stat you want to view.
-![Stats](https://raw.githubusercontent.com/JulianTang2027/Spotify310/master/images/stats.png)
+<img alt="Stats" src="https://raw.githubusercontent.com/JulianTang2027/Spotify310/master/images/stats.png" width="300">
 
 
 ## Tech Stack
