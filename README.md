@@ -19,7 +19,8 @@ Statify is a project that allows users to view their listening history, top arti
 
 ## Usage
 1. Log in to your Spotify account.
-2. Choose which stat you want to view.
+![Login](https://github.com/JulianTang2027/Spotify310/tree/master/images/login.png)
+3. Choose which stat you want to view.
 
 
 ## Tech Stack
